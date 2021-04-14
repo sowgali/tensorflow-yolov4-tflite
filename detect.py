@@ -14,12 +14,12 @@ from tensorflow.compat.v1 import ConfigProto
 from tensorflow.compat.v1 import InteractiveSession
 
 flags.DEFINE_string('framework', 'tf', '(tf, tflite, trt')
-flags.DEFINE_string('weights', './checkpoints/yolov4-416',
+flags.DEFINE_string('weights', './checkpoints/yolov4-tiny-416',
                     'path to weights file')
 flags.DEFINE_integer('size', 416, 'resize images to')
-flags.DEFINE_boolean('tiny', False, 'yolo or yolo-tiny')
+flags.DEFINE_boolean('tiny', True, 'yolo or yolo-tiny')
 flags.DEFINE_string('model', 'yolov4', 'yolov3 or yolov4')
-flags.DEFINE_string('image', './data/kite.jpg', 'path to input image')
+flags.DEFINE_string('image', './data/test.jpg', 'path to input image')
 flags.DEFINE_string('output', 'result.png', 'path to output image')
 flags.DEFINE_float('iou', 0.45, 'iou threshold')
 flags.DEFINE_float('score', 0.25, 'score threshold')
@@ -77,8 +77,19 @@ def main(_argv):
         iou_threshold=FLAGS.iou,
         score_threshold=FLAGS.score
     )
+    danger_boxes = boxes.numpy()
+    dangers = []
     pred_bbox = [boxes.numpy(), scores.numpy(), classes.numpy(), valid_detections.numpy()]
-    image = utils.draw_bbox(original_image, pred_bbox)
+    image, rel_pos = utils.draw_bbox(original_image, pred_bbox)
+    for i,pos in enumerate(rel_pos):
+        if pos[1] == "car":
+            for others, cls in enumerate(rel_pos):
+                if i != others and cls[1] != "car":
+                    iou = utils.bbox_giou(danger_boxes[0][i], danger_boxes[0][others])
+                    if iou > 0:
+                        dangers.append([pos,cls])
+    print(rel_pos)
+    print(dangers)
     # image = utils.draw_bbox(image_data*255, pred_bbox)
     image = Image.fromarray(image.astype(np.uint8))
     image.show()

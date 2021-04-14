@@ -1,6 +1,7 @@
 import cv2
 import random
 import colorsys
+import copy
 import numpy as np
 import tensorflow as tf
 from core.config import cfg
@@ -135,15 +136,16 @@ def draw_bbox(image, bboxes, classes=read_class_names(cfg.YOLO.CLASSES), show_la
     random.shuffle(colors)
     random.seed(None)
 
+    relative_positions = []
     out_boxes, out_scores, out_classes, num_boxes = bboxes
     for i in range(num_boxes[0]):
         if int(out_classes[0][i]) < 0 or int(out_classes[0][i]) > num_classes: continue
         coor = out_boxes[0][i]
+        temp = copy.deepcopy(out_boxes[0][i])
         coor[0] = int(coor[0] * image_h)
         coor[2] = int(coor[2] * image_h)
         coor[1] = int(coor[1] * image_w)
         coor[3] = int(coor[3] * image_w)
-
         fontScale = 0.5
         score = out_scores[0][i]
         class_ind = int(out_classes[0][i])
@@ -151,6 +153,12 @@ def draw_bbox(image, bboxes, classes=read_class_names(cfg.YOLO.CLASSES), show_la
         bbox_thick = int(0.6 * (image_h + image_w) / 600)
         c1, c2 = (coor[1], coor[0]), (coor[3], coor[2])
         cv2.rectangle(image, c1, c2, bbox_color, bbox_thick)
+        if temp[1] < 0.5 and temp[3] < 0.5:
+            relative_positions.append(["left", classes[class_ind]])
+        elif temp[1] < 0.5 and temp[3] >= 0.5:
+            relative_positions.append(["right-left", classes[class_ind]])
+        else:
+            relative_positions.append(["right", classes[class_ind]])
 
         if show_label:
             bbox_mess = '%s: %.2f' % (classes[class_ind], score)
@@ -160,7 +168,7 @@ def draw_bbox(image, bboxes, classes=read_class_names(cfg.YOLO.CLASSES), show_la
 
             cv2.putText(image, bbox_mess, (c1[0], np.float32(c1[1] - 2)), cv2.FONT_HERSHEY_SIMPLEX,
                         fontScale, (0, 0, 0), bbox_thick // 2, lineType=cv2.LINE_AA)
-    return image
+    return image,relative_positions
 
 def bbox_iou(bboxes1, bboxes2):
     """
